@@ -1,7 +1,8 @@
 
 export class Traceback ::
-  constructor(trace_tip) ::
+  constructor(trace_tip, asFrameList) ::
     this.trace_tip = trace_tip
+    this.asFrameList = asFrameList
 
   get async_stack() :: return this.toString()
 
@@ -25,21 +26,13 @@ export class Traceback ::
   toErrorFrames(limit) ::
     if undefined === limit :: limit = this.default_limit
     const tip = this.trace_tip
-    const head = this.select_error_frames @ tip.early, []
-    const tail = this.select_error_frames @ tip, head, limit
+    const head = tip.early
+    const tail = this.asFrameList(tip, limit)
+    const idx = head ? tail.indexOf(head[0]) : -1
+    if -1 < idx ::
+      tail.splice @ idx, tail.length,
+        ... head.splice(0, head.length)
     return @{} tail, head
-
-  select_error_frames(tip, head, limit) ::
-    const res = [], head0 = head[0]
-    while undefined !== tip ::
-      if head0 === tip ::
-        res.push @ ... head.splice(0, head.length)
-        break
-
-      res.push @ tip
-      if res.length > limit :: break
-      tip = tip.parent
-    return res
 
 Traceback.prototype.default_limit = 10
 Traceback.prototype.stack_filter = as_stack_filter @ new Set @

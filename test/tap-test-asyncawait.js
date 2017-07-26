@@ -44,7 +44,7 @@ module.exports = exports = function (tap, cps_traceback, test_utils) ::
       ::
         const frames = cps_traceback.capture().toFrames()
         t.deepEqual @ test_utils.asFrameKeys(frames), @{}
-            head: @[]
+             head: @[]
                 "CPS[10]::PROMISE",
                 "CPS[9]::PROMISE",
                 "CPS[8]::PROMISE",
@@ -66,4 +66,37 @@ module.exports = exports = function (tap, cps_traceback, test_utils) ::
                 "CPS[30]::PROMISE",
                 "CPS[29]::PROMISE",
                 "CPS[28]::PROMISE",
-                "CPS[27]::PROMISE",
+
+  tap.test @ 'Async-await promise merge chain', async t => ::
+    await aaa()
+    return
+
+    async function aaa() :: await ''; await bbb()
+    async function bbb() :: await ''; await ccc()
+    async function ccc() :: await ''; await ddd()
+    async function ddd() :: await ''; await eee()
+    async function eee() :: await ''; await fff()
+    async function fff() :: await ''; await ggg()
+    async function ggg() :: await ''; await zzz()
+
+    async function zzz() ::
+      ::
+        const frames = cps_traceback.capture().toFrames()
+        t.deepEqual @ test_utils.asFrameKeys(frames), @{}
+             head: @[]
+           , tail: @[]
+                "CPS[15]::PROMISE",
+                "CPS[14]::PROMISE",
+                "CPS[13]::PROMISE",
+                "CPS[12]::PROMISE",
+                "CPS[11]::PROMISE",
+                "CPS[10]::PROMISE",
+                "CPS[9]::PROMISE",
+                "CPS[8]::PROMISE",
+                "CPS[7]::PROMISE",
+                "CPS[6]::PROMISE",
+                "CPS[5]::PROMISE",
+                "CPS[4]::PROMISE",
+                "CPS[3]::PROMISE",
+                "CPS[2]::PROMISE",
+                "CPS[1]::PROMISE",

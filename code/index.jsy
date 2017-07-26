@@ -2,24 +2,44 @@ const async_hooks = require('async_hooks')
 const {Traceback} = require('./traceback')
 
 const db_trace = new Map()
+
 const hook_trace = async_hooks.createHook @:
-    init(aid, type, tid) ::
-      const parent = db_trace.get(tid)
+    init(asyncId, type, triggerId) ::
+      const parent = db_trace.get(triggerId)
       const depth = undefined !== parent ? 1 + parent.depth : 1
       const key = `CPS[${depth}]::${type}`
+
       const err = new Error(key)
-      if undefined !== parent ::
-        const early = parent.early ? parent.early
-          : 11 === depth ? parent : undefined
-        Object.defineProperties @ err, @:
-            parent: @: value: parent
-          , early: @: value: early
+      err.triggerId = triggerId
       err.depth = depth
 
-      db_trace.set @ aid, err
+      if undefined !== parent ::
+        let early = parent.early
+        if undefined === early && 11 === depth ::
+          early = asFrameList(triggerId)
+        if undefined !== early ::
+          Object.defineProperties @ err, {early: { value: early }}
 
-  , destroy(aid) ::
-      db_trace.delete @ aid
+      db_trace.set @ asyncId, err
+
+  , destroy(asyncId) ::
+      db_trace.delete @ asyncId
+
+
+function asFrameList(triggerId, limit) ::
+  const res = []
+  if triggerId.triggerId && triggerId.depth ::
+    res.push @ triggerId
+    triggerId = triggerId.triggerId
+
+  while triggerId ::
+    const frame = db_trace.get(triggerId)
+    if frame === undefined :: break
+    res.push @ frame
+    if res.length >= limit :: break
+    triggerId = frame.triggerId
+
+  return res
 
 
 const api = @: Traceback
@@ -45,7 +65,7 @@ const api = @: Traceback
 
       if undefined === raw_trace ::
         raw_trace = new Error @ `CPS[?]::unavailable`
-      return new Traceback @ raw_trace
+      return new Traceback @ raw_trace, asFrameList
 
 export default api
 export const install = api.install.bind(api)
