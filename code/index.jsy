@@ -1,0 +1,54 @@
+const async_hooks = require('async_hooks')
+const {Traceback} = require('./traceback')
+
+const db_trace = new Map()
+const hook_trace = async_hooks.createHook @:
+    init(aid, type, tid) ::
+      const parent = db_trace.get(tid)
+      const depth = undefined !== parent ? 1 + parent.depth : 1
+      const key = `CPS[${depth}]::${type}`
+      const err = new Error(key)
+      if undefined !== parent ::
+        const early = parent.early ? parent.early
+          : 11 === depth ? parent : undefined
+        Object.defineProperties @ err, @:
+            parent: @: value: parent
+          , early: @: value: early
+      err.depth = depth
+
+      db_trace.set @ aid, err
+
+  , destroy(aid) ::
+      db_trace.delete @ aid
+
+
+const api = @: Traceback
+
+  , install() ::
+      Error.stackTraceLimit = Math.max @ 30, Error.stackTraceLimit
+      hook_trace.enable()
+      return this
+
+  , uninstall() ::
+      hook_trace.disable()
+      db_trace.clear()
+      return this
+
+  , withTraceback(Traceback) ::
+      if 'function' !== typeof Traceback ::
+        throw new TypeError @ `Expected an Traceback function supporting new`
+      return @: Traceback, __proto__: this
+
+  , capture(Traceback=this.Traceback) ::
+      let raw_trace = db_trace.get @
+        async_hooks.executionAsyncId()
+
+      if undefined === raw_trace ::
+        raw_trace = new Error @ `CPS[?]::unavailable`
+      return new Traceback @ raw_trace
+
+export default api
+export const install = api.install.bind(api)
+export const uninstall = api.uninstall.bind(api)
+export const withTraceback = api.withTraceback.bind(api)
+export const capture = api.capture.bind(api)

@@ -1,0 +1,99 @@
+
+export class Traceback ::
+  constructor(trace_tip) ::
+    this.trace_tip = trace_tip
+
+  get async_stack() :: return this.toString()
+
+  toString(lead='') ::
+    const {tail, head} = this.toLines()
+    const lines = head.length
+      ? [lead].concat @ tail, ['    ...'], head
+      : [lead].concat @ tail
+    return lines.join('\n')
+
+  toLines(limit) ::
+    return this.toFrames(limit, flatten)
+
+  toFrames(limit, xform) ::
+    if ! xform :: xform = v => v
+    const err_frames = this.toErrorFrames(limit)
+    const head = xform @ diff_stack_list(err_frames.head, this.stack_filter)
+    const tail = xform @ diff_stack_list(err_frames.tail, this.stack_filter)
+    return @{} tail, head
+
+  toErrorFrames(limit) ::
+    if undefined === limit :: limit = this.default_limit
+    const tip = this.trace_tip
+    const head = this.select_error_frames @ tip.early, []
+    const tail = this.select_error_frames @ tip, head, limit
+    return @{} tail, head
+
+  select_error_frames(tip, head, limit) ::
+    const res = [], head0 = head[0]
+    while undefined !== tip ::
+      if head0 === tip ::
+        res.push @ ... head.splice(0, head.length)
+        break
+
+      res.push @ tip
+      if res.length > limit :: break
+      tip = tip.parent
+    return res
+
+Traceback.prototype.default_limit = 10
+Traceback.prototype.stack_filter = as_stack_filter @ new Set @
+  ['bootstrap_node', 'AsyncHook.init'].concat @
+    Object.keys(process.binding('natives'))
+
+
+export function diff_stack_list(error_frames, stack_filter, asRawFrames) ::
+  if ! error_frames || ! error_frames.length ::
+    return []
+
+  if 'function' !== typeof stack_filter ::
+    stack_filter = as_stack_filter(stack_filter)
+
+  const frames = error_frames.map @ err => @:
+    key: err.message, lines: err.stack.split(/\r?\n/).filter(stack_filter)
+
+  frames.reduce @ (cur, prev) => ::
+    cur.lines = diff_frame_lines @ cur.lines, prev.lines
+    return prev
+
+  if asRawFrames ::
+    return frames
+  else ::
+    return frames.map @ frame =>
+      [`    -- ${frame.key}`]
+        .concat @ frame.lines
+
+export const rx_stack_at = /\s+at\s(.*)\s+\((.*)\)$/
+export function as_stack_filter(suppress) ::
+  if ! suppress ::
+    return line => rx_stack_at.exec(line)
+
+  if 'function' !== typeof suppress.has ::
+    throw new TypeError @ `Expected set-like suppress instance`
+
+  return line => ::
+    const m = rx_stack_at.exec(line)
+    if ! m :: return
+    if suppress.has(m[1]) || suppress.has(m[2]) :: return
+    const basename = m[2].split('.')[0]
+    if suppress.has(basename) :: return
+    return true
+
+export function diff_frame_lines(cur_lines, prev_lines) ::
+  let i0 = cur_lines.length - 1
+  let i1 = prev_lines.lastIndexOf(cur_lines[i0])
+
+  // match from the tail of cur_lines and walk backward until difference is found
+  if -1 === i1 :: return cur_lines
+  while i0 >= 0 && i1 >= 0 && cur_lines[i0] === prev_lines[i1] ::
+    i0--; i1--
+
+  return cur_lines.slice(0, i0+1)
+
+function flatten(lst) :: return lst.reduce @ (a,b) => a.concat(b), []
+
