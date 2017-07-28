@@ -26,3 +26,5 @@ module.exports = exports = function (tap, cps_traceback, test_utils) ::
       const frames = cps_traceback.error(err).toFrames()
       t.deepEqual @ test_utils.asFrameKeys(frames)
         , @: head:[], tail: @[] "Error: a test error", "CPS[3]::PROMISE", "CPS[2]::PROMISE", "CPS[1]::PROMISE"
+
+      console.log @ frames

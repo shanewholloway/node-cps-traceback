@@ -71,7 +71,7 @@ export function diff_stack_list(error_frames, stack_filter, asRawFrames) ::
 
 function formatFrameLeader(frame) ::
   if frame.key !== false ::
-    return `    -- ${frame.key}`
+    return `  -- ${frame.key}`
   return frame.err.toString()
 
 export const rx_stack_at = /\s+at\s(.*)\s+\((.*)\)$/

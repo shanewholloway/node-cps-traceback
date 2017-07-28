@@ -8,8 +8,8 @@ import tap from 'tap-lite-tester'
 const test_utils = @: cps_traceback
   , asFrameKeys(frames) ::
       let {head, tail} = frames
-      head = head.map @ l => l[0].replace(/\s+-+\s+/, '')
-      tail = tail.map @ l => l[0].replace(/\s+-+\s+/, '')
+      head = head.map @ l => l[0].replace(/^\s*-+\s*/, '')
+      tail = tail.map @ l => l[0].replace(/^\s*-+\s*/, '')
       return {head, tail}
 
 tap.start()

@@ -1,6 +1,6 @@
 {
   "name": "cps-traceback",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "description": "Relate and reconstruct tracebacks across asynchronous call frames using `async_hooks` module from NodeJS 8.2",
   "license": "BSD-2-Clause",
   "author": "Shane Holloway <shane.holloway@ieee.org>",
