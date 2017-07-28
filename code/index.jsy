@@ -67,12 +67,16 @@ const api = @: Traceback
         raw_trace = new Error @ `CPS[?]::unavailable`
       return new Traceback @ raw_trace, asFrameList
 
+  , error(error) ::
+      return this.capture().withError(error)
+
   , async_stack() ::
-      return this.capture().async_stack
+      return this.capture().async_stack()
 
 export default api
 export const install = api.install.bind(api)
 export const uninstall = api.uninstall.bind(api)
 export const withTraceback = api.withTraceback.bind(api)
 export const capture = api.capture.bind(api)
+export const error = api.error.bind(api)
 export const async_stack = api.async_stack.bind(api)

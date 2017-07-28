@@ -6,6 +6,10 @@ export class Traceback ::
 
   async_stack() :: return this.toString()
 
+  withError(error) ::
+    this.error = error
+    return this
+
   toString(lead='') ::
     const {tail, head} = this.toLines()
     const lines = head.length
@@ -32,6 +36,9 @@ export class Traceback ::
     if -1 < idx ::
       tail.splice @ idx, tail.length,
         ... head.splice(0, head.length)
+
+    if undefined !== this.error ::
+      tail.unshift @ this.error
     return @{} tail, head
 
 Traceback.prototype.default_limit = 10
@@ -48,7 +55,8 @@ export function diff_stack_list(error_frames, stack_filter, asRawFrames) ::
     stack_filter = as_stack_filter(stack_filter)
 
   const frames = error_frames.map @ err => @:
-    key: err.message, lines: err.stack.split(/\r?\n/).filter(stack_filter)
+        lines: err.stack.split(/\r?\n/).filter(stack_filter)
+      , err, key: err.triggerId ? err.message : false
 
   frames.reduce @ (cur, prev) => ::
     cur.lines = diff_frame_lines @ cur.lines, prev.lines
@@ -58,8 +66,13 @@ export function diff_stack_list(error_frames, stack_filter, asRawFrames) ::
     return frames
   else ::
     return frames.map @ frame =>
-      [`    -- ${frame.key}`]
+      [formatFrameLeader(frame)]
         .concat @ frame.lines
+
+function formatFrameLeader(frame) ::
+  if frame.key !== false ::
+    return `    -- ${frame.key}`
+  return frame.err.toString()
 
 export const rx_stack_at = /\s+at\s(.*)\s+\((.*)\)$/
 export function as_stack_filter(suppress) ::
