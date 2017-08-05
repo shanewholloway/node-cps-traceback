@@ -1,29 +1,38 @@
-const async_hooks = require('async_hooks')
+try ::
+  var async_hooks = require('async_hooks')
+  if 'function' !== typeof async_hooks.executionAsyncId ::
+    throw new Error @ `Missing executionAsyncId function`
+catch err ::
+  async_hooks = undefined
+  console.warn @ `Unable to load async_hooks module (Node 8.2+ required).\n  (reason: ${err.message})`
+
 const {Traceback} = require('./traceback')
 
 const db_trace = new Map()
 
-const hook_trace = async_hooks.createHook @:
-    init(asyncId, type, triggerId) ::
-      const parent = db_trace.get(triggerId)
-      const depth = undefined !== parent ? 1 + parent.depth : 1
-      const key = `CPS[${depth}]::${type}`
+const hook_trace = async_hooks
+  ? async_hooks.createHook @:
+        destroy(asyncId) ::
+          db_trace.delete @ asyncId
+      , init(asyncId, type, triggerId) ::
+          const parent = db_trace.get(triggerId)
+          const depth = undefined !== parent ? 1 + parent.depth : 1
+          const key = `CPS[${depth}]::${type}`
 
-      const err = new Error(key)
-      err.triggerId = triggerId
-      err.depth = depth
+          const err = new Error(key)
+          err.triggerId = triggerId
+          err.depth = depth
 
-      if undefined !== parent ::
-        let early = parent.early
-        if undefined === early && 11 === depth ::
-          early = asFrameList(triggerId)
-        if undefined !== early ::
-          Object.defineProperties @ err, {early: { value: early }}
+          if undefined !== parent ::
+            let early = parent.early
+            if undefined === early && 11 === depth ::
+              early = asFrameList(triggerId)
+            if undefined !== early ::
+              Object.defineProperties @ err, {early: { value: early }}
 
-      db_trace.set @ asyncId, err
+          db_trace.set @ asyncId, err
+  : null
 
-  , destroy(asyncId) ::
-      db_trace.delete @ asyncId
 
 
 function asFrameList(triggerId, limit) ::
@@ -43,15 +52,23 @@ function asFrameList(triggerId, limit) ::
 
 
 const api = @: Traceback
+  , isSupported() ::
+      return !! hook_trace
+  , isActive() ::
+      return hook_trace ? hook_trace.active : undefined
 
   , install() ::
       Error.stackTraceLimit = Math.max @ 30, Error.stackTraceLimit
-      hook_trace.enable()
+      if hook_trace ::
+        hook_trace.enable()
+        hook_trace.active = true
       return this
 
   , uninstall() ::
-      hook_trace.disable()
       db_trace.clear()
+      if hook_trace ::
+        hook_trace.disable()
+        hook_trace.active = false
       return this
 
   , withTraceback(Traceback) ::
@@ -60,8 +77,9 @@ const api = @: Traceback
       return @: Traceback, __proto__: this
 
   , capture(Traceback=this.Traceback) ::
-      let raw_trace = db_trace.get @
-        async_hooks.executionAsyncId()
+      let raw_trace = async_hooks
+        ? db_trace.get @ async_hooks.executionAsyncId()
+        : undefined
 
       if undefined === raw_trace ::
         raw_trace = new Error @ `CPS[?]::unavailable`
@@ -73,10 +91,5 @@ const api = @: Traceback
   , async_stack() ::
       return this.capture().async_stack()
 
-export default api
-export const install = api.install.bind(api)
-export const uninstall = api.uninstall.bind(api)
-export const withTraceback = api.withTraceback.bind(api)
-export const capture = api.capture.bind(api)
-export const error = api.error.bind(api)
-export const async_stack = api.async_stack.bind(api)
+api.api = api.default = api
+module.exports = exports = api

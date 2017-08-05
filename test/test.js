@@ -14,9 +14,12 @@ const test_utils = @: cps_traceback
 
 tap.start()
 
-require('./tap-test-smoke') @ tap, cps_traceback, test_utils
-require('./tap-test-timers') @ tap, cps_traceback, test_utils
-require('./tap-test-asyncawait') @ tap, cps_traceback, test_utils
+if cps_traceback.isSupported() ::
+  require('./tap-test-smoke') @ tap, cps_traceback, test_utils
+  require('./tap-test-timers') @ tap, cps_traceback, test_utils
+  require('./tap-test-asyncawait') @ tap, cps_traceback, test_utils
+else ::
+  require('./tap-test-not-supported') @ tap, cps_traceback, test_utils
 
 tap.finish()
 
