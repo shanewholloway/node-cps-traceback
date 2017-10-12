@@ -56,7 +56,8 @@ export function diff_stack_list(error_frames, stack_filter, asRawFrames) ::
 
   const frames = error_frames.map @ err => @:
         lines: err.stack.split(/\r?\n/).filter(stack_filter)
-      , err, key: err.triggerId ? err.message : false
+        key: err.triggerId ? err.message : false
+        err
 
   frames.reduce @ (cur, prev) => ::
     cur.lines = diff_frame_lines @ cur.lines, prev.lines
